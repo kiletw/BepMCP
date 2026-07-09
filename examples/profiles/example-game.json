@@ -1,0 +1,41 @@
+{
+  "schema": "unity-mcp.profile/1",
+  "gameId": "example-game",
+  "match": {
+    "processName": "ExampleGame",
+    "productName": "Example Game"
+  },
+  "selectors": [
+    { "name": "player", "tag": "Player" },
+    { "name": "camera", "objectName": "Main Camera" }
+  ],
+  "snapshot": {
+    "maxEntities": 200,
+    "includeTags": ["Enemy", "NPC", "Interactable"],
+    "includeLayers": ["Default", "UI"]
+  },
+  "actions": [
+    {
+      "verb": "jump",
+      "enabled": true,
+      "backend": "input",
+      "description": "Make the local player jump.",
+      "timeoutMs": 500
+    },
+    {
+      "verb": "candidate_playercontroller_jump",
+      "enabled": false,
+      "backend": "method",
+      "declaringType": "PlayerController",
+      "method": "Jump",
+      "reason": "discovered public parameterless method"
+    }
+  ],
+  "aliases": [
+    { "from": "confirm", "to": "jump" }
+  ],
+  "safety": {
+    "maxActionMs": 3000,
+    "allowMethodCalls": false
+  }
+}

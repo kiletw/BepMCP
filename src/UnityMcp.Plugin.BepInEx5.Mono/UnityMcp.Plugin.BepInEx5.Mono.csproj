@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>UnityMcp.Plugin.BepInEx5.Mono</AssemblyName>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UnityMcp.Bridge\UnityMcp.Bridge.csproj" />
+    <ProjectReference Include="..\UnityMcp.Core\UnityMcp.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(BepInExRoot)' != ''">
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExRoot)\core\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UnityManagedPath)' != ''">
+    <Reference Include="UnityEngine">
+      <HintPath>$(UnityManagedPath)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(UnityManagedPath)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>
