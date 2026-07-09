@@ -1,10 +1,12 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using BepInEx.Logging;
+using UnityEngine;
 using UnityMcp.Core;
 
 namespace UnityMcp.Plugin.BepInEx5.Mono;
@@ -72,7 +74,15 @@ internal sealed class BridgeHttpServer : IDisposable
             var path = context.Request.Url?.AbsolutePath ?? "/";
             if (context.Request.HttpMethod == "GET" && path == "/healthz")
             {
-                await WriteJson(context, "{\"ok\":true}").ConfigureAwait(false);
+                await WriteJson(context, "{\"ok\":true,\"processId\":" +
+                    Process.GetCurrentProcess().Id + "}").ConfigureAwait(false);
+                return;
+            }
+
+            if (context.Request.HttpMethod == "GET" && path == "/screenshot")
+            {
+                var png = await _scheduler.Enqueue(CaptureScreenshot).ConfigureAwait(false);
+                await WriteBytes(context, "image/png", png).ConfigureAwait(false);
                 return;
             }
 
@@ -113,8 +123,26 @@ internal sealed class BridgeHttpServer : IDisposable
 
     private static async Task WriteJson(HttpListenerContext context, string json)
     {
-        var bytes = Encoding.UTF8.GetBytes(json);
-        context.Response.ContentType = "application/json; charset=utf-8";
+        await WriteBytes(context, "application/json; charset=utf-8",
+            Encoding.UTF8.GetBytes(json)).ConfigureAwait(false);
+    }
+
+    private static byte[] CaptureScreenshot()
+    {
+        var texture = ScreenCapture.CaptureScreenshotAsTexture();
+        try
+        {
+            return ImageConversion.EncodeToPNG(texture);
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(texture);
+        }
+    }
+
+    private static async Task WriteBytes(HttpListenerContext context, string contentType, byte[] bytes)
+    {
+        context.Response.ContentType = contentType;
         context.Response.ContentLength64 = bytes.Length;
         await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
         context.Response.OutputStream.Close();

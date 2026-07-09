@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -8,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using BepInEx.Logging;
+using UnityEngine;
 using UnityMcp.Core;
 
 namespace UnityMcp.Plugin.BepInEx6.Il2Cpp;
@@ -74,7 +76,15 @@ internal sealed class BridgeHttpServer : IDisposable
                 var request = await ReadRequest(stream).ConfigureAwait(false);
                 if (request.Method == "GET" && request.Path == "/healthz")
                 {
-                    await WriteJson(stream, 200, "{\"ok\":true}").ConfigureAwait(false);
+                    await WriteJson(stream, 200, "{\"ok\":true,\"processId\":" +
+                        Process.GetCurrentProcess().Id + "}").ConfigureAwait(false);
+                    return;
+                }
+
+                if (request.Method == "GET" && request.Path == "/screenshot")
+                {
+                    var png = await _scheduler.Enqueue(CaptureScreenshot).ConfigureAwait(false);
+                    await WriteBytes(stream, 200, "image/png", png).ConfigureAwait(false);
                     return;
                 }
 
@@ -175,7 +185,32 @@ internal sealed class BridgeHttpServer : IDisposable
 
     private static async Task WriteJson(NetworkStream stream, int statusCode, string json)
     {
-        var body = Encoding.UTF8.GetBytes(json);
+        await WriteBytes(stream, statusCode, "application/json; charset=utf-8",
+            Encoding.UTF8.GetBytes(json)).ConfigureAwait(false);
+    }
+
+    private static byte[] CaptureScreenshot()
+    {
+        var texture = ScreenCapture.CaptureScreenshotAsTexture();
+        try
+        {
+            var encoded = ImageConversion.EncodeToPNG(texture);
+            var png = new byte[encoded.Length];
+            for (var i = 0; i < png.Length; i++)
+            {
+                png[i] = encoded[i];
+            }
+
+            return png;
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(texture);
+        }
+    }
+
+    private static async Task WriteBytes(NetworkStream stream, int statusCode, string contentType, byte[] body)
+    {
         var reason = statusCode switch
         {
             200 => "OK",
@@ -185,7 +220,7 @@ internal sealed class BridgeHttpServer : IDisposable
         };
         var header = Encoding.ASCII.GetBytes(
             "HTTP/1.1 " + statusCode + " " + reason + "\r\n" +
-            "Content-Type: application/json; charset=utf-8\r\n" +
+            "Content-Type: " + contentType + "\r\n" +
             "Content-Length: " + body.Length + "\r\n" +
             "Connection: close\r\n\r\n");
 

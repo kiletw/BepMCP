@@ -2,8 +2,7 @@
 
 Runtime bridge for AI control of compiled desktop Unity games through BepInEx.
 
-> Alpha: the BepInEx bridge works on a real IL2CPP game. The external MCP
-> server is not implemented yet.
+> Alpha: the BepInEx bridge and stdio MCP server work on a real IL2CPP game.
 
 BepMCP targets shipped games, not the Unity Editor. It injects a small,
 localhost-only bridge into a game and keeps MCP protocol handling in a separate
@@ -18,6 +17,8 @@ compatible BepInEx installation are available.
 - BepInEx 6 IL2CPP plugin, verified on Unity 2021.3.45f2
 - BepInEx 5 Mono plugin target
 - Runtime scene snapshots
+- Runtime PNG screenshots
+- Windows keyboard and mouse sequences
 - Main-thread action execution
 - Explicit action allowlist
 - JSON bridge bound to `127.0.0.1`
@@ -26,7 +27,7 @@ compatible BepInEx installation are available.
 
 ```text
 AI client
-  -> MCP server (planned)
+  -> BepMCP stdio server
   -> localhost JSON bridge
   -> BepInEx plugin
   -> Unity runtime
@@ -43,6 +44,7 @@ The bridge currently provides:
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/healthz` | Check bridge availability |
+| `GET` | `/screenshot` | Capture the current frame as PNG |
 | `GET` | `/snapshot` | Read the active scene and up to 200 GameObjects |
 | `POST` | `/act` | Validate or execute allowlisted actions |
 
@@ -69,12 +71,43 @@ The first action is `set_time_scale`.
 
 All Unity reads and mutations are scheduled onto the Unity main thread.
 
+## MCP Tools
+
+The Windows stdio server exposes:
+
+| Tool | Purpose |
+| --- | --- |
+| `unity_snapshot` | Read scene and entity metadata |
+| `unity_screenshot` | Return the current frame as MCP image content |
+| `unity_act` | Execute allowlisted Unity-level actions |
+| `unity_input` | Send a bounded keyboard/mouse sequence |
+| `unity_cancel` | Cancel an active input sequence |
+
+Input steps support `key_down`, `key_up`, `key_tap`, `mouse_move`,
+`mouse_click`, `scroll`, and `wait`.
+
+```json
+{
+  "actions": [
+    { "type": "key_down", "key": "W" },
+    { "type": "wait", "ms": 500 },
+    { "type": "key_up", "key": "W" }
+  ],
+  "requestId": "move-forward",
+  "timeoutMs": 2000
+}
+```
+
+Input is sent only after the server identifies and focuses the game window
+reported by `/healthz`. Any keys left down are released on completion,
+cancellation, timeout, or failure.
+
 ## Compatibility
 
 | Runtime | Target | Status |
 | --- | --- | --- |
 | IL2CPP | BepInEx 6 | Verified in a desktop game |
-| Mono | BepInEx 5 | Builds; real-game verification pending |
+| Mono | BepInEx 5 | Implementation present; build and real-game verification pending |
 
 BepInEx and Unity assemblies are referenced from a local game installation.
 They are not included in this repository.
@@ -94,6 +127,7 @@ Run the shared check:
 
 ```powershell
 dotnet run --project tests/UnityMcp.Core.Tests/UnityMcp.Core.Tests.csproj
+dotnet run --project src/BepMcp.Server/BepMcp.Server.csproj -- --self-test
 ```
 
 ## Install
@@ -125,11 +159,38 @@ The port can be changed in:
 BepInEx/config/dev.unitymcp.bridge.cfg
 ```
 
+Build the MCP server:
+
+```powershell
+dotnet build src/BepMcp.Server/BepMcp.Server.csproj
+```
+
+Configure an MCP client to launch the built DLL:
+
+```json
+{
+  "mcpServers": {
+    "bepmcp": {
+      "command": "dotnet",
+      "args": [
+        "C:\\path\\to\\BepMcp.Server.dll"
+      ],
+      "env": {
+        "BEPMCP_BRIDGE_URL": "http://127.0.0.1:8765/"
+      }
+    }
+  }
+}
+```
+
 ## Safety
 
 - Listens on IPv4 loopback only.
 - Rejects unknown action verbs.
 - Limits HTTP headers to 16 KB and request bodies to 1 MB on IL2CPP.
+- Limits input sequences to 100 steps and 30 seconds.
+- Serializes input sequences and verifies the foreground process.
+- Releases held keys after cancellation, timeout, or failure.
 - Does not provide raw method invocation or arbitrary code execution.
 - Does not include game binaries or generated interop assemblies.
 
@@ -137,10 +198,10 @@ Only use BepMCP with games and environments where modification is permitted.
 
 ## Roadmap
 
-1. External MCP server with `unity_snapshot`, `unity_act`, and `unity_cancel`.
+1. Stable entity IDs and delta snapshots.
 2. Per-game action profiles.
-3. Screenshot capture for vision models.
-4. Additional input and UI actions.
+3. Unity UI text, bounds, and interactable metadata.
+4. Optional gamepad input for games without keyboard controls.
 5. Release packaging for Mono and IL2CPP.
 
 ## Project Layout
@@ -148,6 +209,7 @@ Only use BepMCP with games and environments where modification is permitted.
 ```text
 src/UnityMcp.Bridge/                    Shared wire models
 src/UnityMcp.Core/                      Scheduler, profiles, action registry
+src/BepMcp.Server/                      Windows stdio MCP server
 src/UnityMcp.Plugin.BepInEx5.Mono/      Mono plugin
 src/UnityMcp.Plugin.BepInEx6.Il2Cpp/    IL2CPP plugin
 tests/UnityMcp.Core.Tests/              Minimal shared checks
@@ -162,7 +224,9 @@ The first IL2CPP smoke test passed:
 - Plugin loaded through BepInEx 6
 - `/healthz` returned HTTP 200
 - `/snapshot` returned 200 scene entities
+- `/screenshot` returned a nonblank PNG frame
 - `/act` validated an allowlisted action
+- MCP completed a real mouse click and observed the changed frame
+- `unity_cancel` stopped an active input sequence
 
-This repository is ready for an `0.1.0-alpha` source release. It is not yet a
-complete MCP server.
+The current source version is `0.2.0-alpha`.
