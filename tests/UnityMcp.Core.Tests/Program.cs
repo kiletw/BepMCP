@@ -11,6 +11,7 @@ public static class Program
         RegistryExecutesOnlyRegisteredActions();
         SchedulerRunsOnCallerPump();
         ProfilesIgnoreDisabledActions();
+        EntityIdsAreStableAndDistinct();
         Console.WriteLine("UnityMcp.Core.Tests ok");
     }
 
@@ -46,6 +47,13 @@ public static class Program
 
         var actions = ProfileDescriptors.ListEnabledActions(profile);
         Assert(actions.Count == 1 && actions[0].Verb == "jump", "disabled actions must stay hidden");
+    }
+
+    private static void EntityIdsAreStableAndDistinct()
+    {
+        var first = StableEntityId.Create("Main", "Canvas/Start", 42);
+        Assert(first == StableEntityId.Create("Main", "Canvas/Start", 42), "entity IDs must be stable");
+        Assert(first != StableEntityId.Create("Main", "Canvas/Start", 43), "instance IDs must disambiguate paths");
     }
 
     private static void Assert(bool condition, string message)

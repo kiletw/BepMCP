@@ -11,6 +11,15 @@ namespace BepMcp.Server;
 [McpServerToolType]
 public static class UnityTools
 {
+    [McpServerTool(Name = "unity_health")]
+    [Description("Check whether the local Unity bridge is available and return its process ID.")]
+    public static Task<string> Health(
+        UnityBridgeClient bridge,
+        CancellationToken cancellationToken)
+    {
+        return bridge.HealthAsync(cancellationToken);
+    }
+
     [McpServerTool(Name = "unity_snapshot")]
     [Description("Read the active Unity scene, runtime metadata, entities, and available semantic actions.")]
     public static Task<string> Snapshot(
@@ -18,6 +27,19 @@ public static class UnityTools
         CancellationToken cancellationToken)
     {
         return bridge.SnapshotAsync(cancellationToken);
+    }
+
+    [McpServerTool(Name = "unity_wait")]
+    [Description("Wait until case-insensitive text appears in or disappears from the Unity snapshot, then return the matching snapshot.")]
+    public static Task<string> Wait(
+        UnityBridgeClient bridge,
+        [Description("Scene name, entity path, UI text, or another snapshot value to match.")] string contains,
+        [Description("Wait for the text to disappear instead of appear.")] bool absent = false,
+        [Description("Maximum wait in milliseconds, from 100 to 30000.")] int timeoutMs = 5000,
+        [Description("Snapshot polling interval in milliseconds, from 50 to 1000.")] int pollMs = 200,
+        CancellationToken cancellationToken = default)
+    {
+        return bridge.WaitForSnapshotAsync(contains, absent, timeoutMs, pollMs, cancellationToken);
     }
 
     [McpServerTool(Name = "unity_screenshot")]

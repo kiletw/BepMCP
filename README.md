@@ -2,7 +2,7 @@
 
 Runtime bridge for AI control of compiled desktop Unity games through BepInEx.
 
-> Alpha: the BepInEx bridge and stdio MCP server work on a real IL2CPP game.
+> Alpha: the BepInEx bridge, stdio MCP server, and reproducible simulator work end to end.
 
 BepMCP targets shipped games, not the Unity Editor. It injects a small,
 localhost-only bridge into a game and keeps MCP protocol handling in a separate
@@ -17,10 +17,14 @@ compatible BepInEx installation are available.
 - BepInEx 6 IL2CPP plugin, verified on Unity 2021.3.45f2
 - BepInEx 5 Mono plugin target
 - Runtime scene snapshots
+- Stable per-session entity IDs
+- Unity UI text, interactable state, and client-area bounds
 - Runtime PNG screenshots
 - Windows keyboard and mouse sequences
 - Main-thread action execution
 - Explicit action allowlist
+- Snapshot condition waiting
+- Standalone bridge simulator
 - JSON bridge bound to `127.0.0.1`
 
 ## Architecture
@@ -45,7 +49,7 @@ The bridge currently provides:
 | --- | --- | --- |
 | `GET` | `/healthz` | Check bridge availability |
 | `GET` | `/screenshot` | Capture the current frame as PNG |
-| `GET` | `/snapshot` | Read the active scene and up to 200 GameObjects |
+| `GET` | `/snapshot` | Read stable scene entities and UI metadata |
 | `POST` | `/act` | Validate or execute allowlisted actions |
 
 The first action is `set_time_scale`.
@@ -77,7 +81,9 @@ The Windows stdio server exposes:
 
 | Tool | Purpose |
 | --- | --- |
+| `unity_health` | Check bridge availability and process identity |
 | `unity_snapshot` | Read scene and entity metadata |
+| `unity_wait` | Wait for snapshot text to appear or disappear |
 | `unity_screenshot` | Return the current frame as MCP image content |
 | `unity_act` | Execute allowlisted Unity-level actions |
 | `unity_input` | Send a bounded keyboard/mouse sequence |
@@ -128,7 +134,26 @@ Run the shared check:
 ```powershell
 dotnet run --project tests/UnityMcp.Core.Tests/UnityMcp.Core.Tests.csproj
 dotnet run --project src/BepMcp.Server/BepMcp.Server.csproj -- --self-test
+dotnet run --project src/BepMcp.Simulator/BepMcp.Simulator.csproj -- --self-test
 ```
+
+## Try Without A Game
+
+Start the deterministic bridge simulator:
+
+```powershell
+dotnet run --project src/BepMcp.Simulator/BepMcp.Simulator.csproj
+```
+
+In another terminal, verify the server-to-bridge path:
+
+```powershell
+$env:BEPMCP_BRIDGE_URL = "http://127.0.0.1:8765/"
+dotnet run --project src/BepMcp.Server/BepMcp.Server.csproj -- --bridge-self-test
+```
+
+The simulator exposes Player, Door, Treasure, status UI, and allowlisted
+`move_player`, `interact`, and `set_time_scale` actions.
 
 ## Install
 
@@ -198,11 +223,10 @@ Only use BepMCP with games and environments where modification is permitted.
 
 ## Roadmap
 
-1. Stable entity IDs and delta snapshots.
-2. Per-game action profiles.
-3. Unity UI text, bounds, and interactable metadata.
-4. Optional gamepad input for games without keyboard controls.
-5. Release packaging for Mono and IL2CPP.
+1. Per-game action profile loading and alias resolution.
+2. Delta snapshots for large scenes.
+3. Optional gamepad input for games without keyboard controls.
+4. Release packaging for Mono and IL2CPP.
 
 ## Project Layout
 
@@ -210,6 +234,7 @@ Only use BepMCP with games and environments where modification is permitted.
 src/UnityMcp.Bridge/                    Shared wire models
 src/UnityMcp.Core/                      Scheduler, profiles, action registry
 src/BepMcp.Server/                      Windows stdio MCP server
+src/BepMcp.Simulator/                   Reproducible bridge simulator
 src/UnityMcp.Plugin.BepInEx5.Mono/      Mono plugin
 src/UnityMcp.Plugin.BepInEx6.Il2Cpp/    IL2CPP plugin
 tests/UnityMcp.Core.Tests/              Minimal shared checks
@@ -224,9 +249,11 @@ The first IL2CPP smoke test passed:
 - Plugin loaded through BepInEx 6
 - `/healthz` returned HTTP 200
 - `/snapshot` returned 200 scene entities
+- Entity IDs remained stable across consecutive snapshots
+- Title scene returned UI bounds, text, and 14 interactable elements
 - `/screenshot` returned a nonblank PNG frame
 - `/act` validated an allowlisted action
 - MCP completed a real mouse click and observed the changed frame
 - `unity_cancel` stopped an active input sequence
 
-The current source version is `0.2.0-alpha`.
+The current source version is `0.3.0-alpha`.

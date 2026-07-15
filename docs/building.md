@@ -4,6 +4,8 @@
 
 ```powershell
 dotnet run --project tests/UnityMcp.Core.Tests/UnityMcp.Core.Tests.csproj
+dotnet run --project src/BepMcp.Server/BepMcp.Server.csproj -- --self-test
+dotnet run --project src/BepMcp.Simulator/BepMcp.Simulator.csproj -- --self-test
 ```
 
 ## BepInEx 5 Mono Plugin
@@ -98,3 +100,19 @@ dotnet run --project src/BepMcp.Server/BepMcp.Server.csproj --no-build
 
 The MCP server communicates over stdio. Do not write other program output to
 stdout; diagnostics are written to stderr.
+
+## Simulator Integration Check
+
+The simulator lets contributors test without a Unity game or proprietary
+assemblies. Start it in one terminal:
+
+```powershell
+dotnet run --project src/BepMcp.Simulator/BepMcp.Simulator.csproj
+```
+
+Then run the bridge check in another terminal:
+
+```powershell
+$env:BEPMCP_BRIDGE_URL = "http://127.0.0.1:8765/"
+dotnet run --project src/BepMcp.Server/BepMcp.Server.csproj -- --bridge-self-test
+```

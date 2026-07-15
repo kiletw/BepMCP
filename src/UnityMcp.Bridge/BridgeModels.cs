@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace UnityMcp.Bridge;
 
@@ -74,9 +75,49 @@ public sealed class EntityInfo
     public string Id { get; set; } = string.Empty;
     public string Kind { get; set; } = "entity";
     public string Name { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public int InstanceId { get; set; }
+    public int Layer { get; set; }
+    public bool Active { get; set; }
     public List<string> Tags { get; set; } = new List<string>();
     public Pose Pose { get; set; } = new Pose();
+    public UiInfo? Ui { get; set; }
     public List<string> Actions { get; set; } = new List<string>();
+}
+
+public sealed class UiInfo
+{
+    public string Text { get; set; } = string.Empty;
+    public bool Interactable { get; set; }
+    public bool Visible { get; set; }
+    public ScreenRect Bounds { get; set; } = new ScreenRect();
+    public List<string> Components { get; set; } = new List<string>();
+}
+
+public sealed class ScreenRect
+{
+    public float X { get; set; }
+    public float Y { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+}
+
+public static class StableEntityId
+{
+    public static string Create(string scene, string path, int instanceId)
+    {
+        const ulong offset = 14695981039346656037;
+        const ulong prime = 1099511628211;
+        var value = scene + "\n" + path + "\n" + instanceId.ToString(CultureInfo.InvariantCulture);
+        var hash = offset;
+        foreach (var character in value)
+        {
+            hash ^= character;
+            hash *= prime;
+        }
+
+        return "go:" + hash.ToString("x16", CultureInfo.InvariantCulture);
+    }
 }
 
 public sealed class ActionRequest
