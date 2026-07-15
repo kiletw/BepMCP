@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  managed:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - run: dotnet run --project tests/UnityMcp.Core.Tests/UnityMcp.Core.Tests.csproj
+      - run: dotnet run --project src/BepMcp.Server/BepMcp.Server.csproj -- --self-test
+      - run: dotnet run --project src/BepMcp.Simulator/BepMcp.Simulator.csproj -- --self-test

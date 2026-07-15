@@ -4,7 +4,7 @@ using UnityMcp.Core;
 
 namespace UnityMcp.Plugin.BepInEx5.Mono;
 
-[BepInPlugin("dev.unitymcp.bridge", "Unity MCP Bridge", "0.1.0")]
+[BepInPlugin("dev.unitymcp.bridge", "Unity MCP Bridge", "0.3.0")]
 public sealed class UnityMcpPlugin : BaseUnityPlugin
 {
     private readonly MainThreadScheduler _scheduler = new MainThreadScheduler();
